@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { Pickaxe, Download, Loader2, FileCode } from "lucide-react";
+import { BrainCircuit, Download, Loader2, FileCode } from "lucide-react";
 
 export const meta: MetaFunction = () => {
   return [
@@ -42,6 +42,7 @@ export default function Mine() {
   const [nTrials, setNTrials] = useState("100");
   const [searchStrategy, setSearchStrategy] = useState("greedy");
   const [sampleMethod, setSampleMethod] = useState("tree");
+  const [graphType, setGraphType] = useState("directed");
   const [outputFormat, setOutputFormat] = useState("representative");
 
   const [isMining, setIsMining] = useState(false);
@@ -71,6 +72,7 @@ export default function Mine() {
       formData.append("n_trials", nTrials);
       formData.append("search_strategy", searchStrategy);
       formData.append("sample_method", sampleMethod);
+      formData.append("graph_type", graphType);
       formData.append("graph_output_format", outputFormat);
 
       // Call the Integration Service API with FormData
@@ -102,8 +104,8 @@ export default function Mine() {
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       <div className="flex items-center gap-4 mb-8">
-        <div className="p-3">
-          <Pickaxe size={32} className="text-primary" />
+        <div>
+          <BrainCircuit size={48} className="text-primary" />
         </div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Neural Subgraph Miner</h1>
@@ -215,7 +217,7 @@ export default function Mine() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="greedy">Greedy</SelectItem>
-                          <SelectItem value="mcmc">MCMC</SelectItem>
+                          <SelectItem value="mcts">MCTS</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -230,7 +232,23 @@ export default function Mine() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="tree">Tree</SelectItem>
-                          <SelectItem value="random">Random</SelectItem>
+                          <SelectItem value="radius">Radius</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="graph-type">Graph Type</Label>
+                      <Select
+                        value={graphType}
+                        onValueChange={setGraphType}
+                      >
+                        <SelectTrigger id="graph-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="directed">Directed</SelectItem>
+                          <SelectItem value="undirected">Undirected</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -268,7 +286,7 @@ export default function Mine() {
                 </>
               ) : (
                 <>
-                  <Pickaxe className="mr-2 h-4 w-4" /> Start Mining
+                  <BrainCircuit className="mr-2 h-4 w-4" /> Start Mining
                 </>
               )}
             </Button>
@@ -277,9 +295,9 @@ export default function Mine() {
 
         {/* Results Section */}
         {miningResult && (
-          <Card className="md:col-span-2 bg-green-500/10 border-green-500">
+          <Card className="md:col-span-2">
             <CardHeader>
-              <CardTitle className="text-green-700 flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 Mining Complete!
               </CardTitle>
             </CardHeader>

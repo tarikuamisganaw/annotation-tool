@@ -13,7 +13,8 @@ import {
 import { Play, Sparkles } from "lucide-react";
 import { useContext, useState } from "react";
 import { toast } from "sonner";
-import { loaderAPI, integrationAPI } from "~/api";
+import { loaderAPI, integrationAPI, annotationAPI } from "~/api";
+import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
@@ -24,6 +25,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
+import { PostImportDialog } from "~/components/post-import-dialog";
+
 
 interface Config {
   vertices: {
@@ -76,6 +79,13 @@ function Tool() {
     "metta"
   );
   const [graphType, setGraphType] = useState<"directed" | "undirected">("directed");
+
+
+
+  // Post-Import Dialog State
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [generatedJobId, setGeneratedJobId] = useState("");
+
   const [initialSchema, setInitialSchema] = useState<Schema | undefined>();
 
   function removeSource(id: string) {
@@ -221,39 +231,11 @@ function Tool() {
         });
 
         const jobId = response.data.job_id;
-        toast.success("NetworkX Graph Generated!", {
-          description: (
-            <div className="flex flex-col gap-2">
-              <p>Job ID: {jobId}</p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  navigator.clipboard.writeText(jobId);
-                  toast.success("Copied to clipboard!");
-                }}
-              >
-                Copy Job ID
-              </Button>
-            </div>
-          ),
-          duration: 5000,
-        });
 
-        // Delay redirect slightly to allow user to see/copy, or rely on them seeing it on dashboard?
-        // User asked for copy "before it redirect" or "popup... then show job id".
-        // A Toast with a button is good.
-        // Let's create a small delay or just redirect. The user said "before it redirect there is a popup".
-        // The toast will persist for a bit or until clicked if we configure it?
-        // Actually, if we redirect, the toast might survive if it conflicts with navigation.
-        // But usually, navigating refreshes the page or unmounts components.
-        // This is Remix. Navigation to `/?job_id=...` might re-render.
-        // Let's use `navigate` instead of `window.location.href` to be SPA-friendly and keep the toast alive.
-
-        setTimeout(() => {
-          // Redirect to dashboard with Job ID
-          navigate(`/?job_id=${jobId}&writer=networkx`);
-        }, 2000);
+        // Open Dialog instead of immediate redirect
+        setGeneratedJobId(jobId);
+        setShowNameDialog(true);
+        // Do NOT redirect yet
         return;
       }
 
@@ -275,6 +257,51 @@ function Tool() {
       setBusy(false);
     }
   }
+
+  const handleNameSave = async (name: string) => {
+    // 1. Check for duplicates locally first
+    const savedHistory = JSON.parse(localStorage.getItem("neurograph_history") || "[]");
+    const exists = savedHistory.some((h: any) => h.title?.toLowerCase() === name.trim().toLowerCase());
+
+    if (exists) {
+      toast.error("Name already exists", {
+        description: "Please choose a unique name for your graph."
+      });
+      return;
+    }
+
+    // 2. Fire-and-forget API call (don't await)
+    annotationAPI.put(`/annotation/${generatedJobId}/title`, { title: name })
+      .catch(err => console.error("Background save failed", err));
+
+    // 3. Instant Local Update & Redirect
+    finalizeImport(name);
+  };
+
+  const handleSkip = () => {
+    finalizeImport("Untitled Graph");
+  };
+
+  const finalizeImport = (title: string) => {
+    // Save to LocalStorage for instant access
+    const newGraph = {
+      annotation_id: generatedJobId,
+      title: title,
+      created_at: new Date().toISOString(),
+      node_count: 0, // Placeholder
+      edge_count: 0, // Placeholder
+      isLocal: true,
+    };
+    const savedHistory = JSON.parse(localStorage.getItem("neurograph_history") || "[]");
+    localStorage.setItem("neurograph_history", JSON.stringify([newGraph, ...savedHistory]));
+
+    setShowNameDialog(false);
+    navigate("/");
+
+    toast.success("Graph ready!", {
+      description: `Imported as ${title}`
+    });
+  };
 
   return (
     <div className="h-full w-full flex">
@@ -381,21 +408,26 @@ function Tool() {
 
           {writer === "networkx" && (
             <>
-              <p className="text-sm font-bold mb-2">Graph Type:</p>
-              <RadioGroup
-                className="px-2 mb-6 flex"
-                defaultValue={graphType}
-                onValueChange={(v) => setGraphType(v as typeof graphType)}
-              >
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="directed" id="directed" />
-                  <Label htmlFor="directed">Directed</Label>
+              <p className="text-sm font-bold mb-2">Graph Details:</p>
+              <div className="grid gap-3 mb-6 px-2">
+                <div className="grid gap-1.5">
+                  <Label>Graph Type</Label>
+                  <RadioGroup
+                    className="flex mt-1"
+                    defaultValue={graphType}
+                    onValueChange={(v) => setGraphType(v as typeof graphType)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <RadioGroupItem value="directed" id="directed" />
+                      <Label htmlFor="directed">Directed</Label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <RadioGroupItem value="undirected" id="undirected" />
+                      <Label htmlFor="undirected">Undirected</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="undirected" id="undirected" />
-                  <Label htmlFor="undirected">Undirected</Label>
-                </div>
-              </RadioGroup>
+              </div>
             </>
           )}
 
@@ -408,6 +440,13 @@ function Tool() {
             {!busy && <Play className="inline me-1" />} Run import
           </Button>
         </div>
+
+        <PostImportDialog
+          isOpen={showNameDialog}
+          jobId={generatedJobId}
+          onSave={handleNameSave}
+          onSkip={handleSkip}
+        />
       </div>
       <div className="relative w-full h-full">
         <SchemaBuilder

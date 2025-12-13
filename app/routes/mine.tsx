@@ -1,8 +1,12 @@
 import { json, type MetaFunction } from "@remix-run/node";
 import { useSearchParams, useNavigate } from "@remix-run/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { integrationAPI } from "~/api";
+import { integrationAPI, annotationAPI } from "~/api";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+
+dayjs.extend(relativeTime);
 import {
   Accordion,
   AccordionContent,
@@ -50,6 +54,68 @@ export default function Mine() {
     downloadUrl: string;
     patternsCount?: number;
   } | null>(null);
+
+  // History State
+  const [history, setHistory] = useState<any[]>([]);
+
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  useEffect(() => {
+    const initData = async () => {
+      // 1. Hydrate from LocalStorage immediately
+      let localData: any[] = [];
+      try {
+        const saved = localStorage.getItem("neurograph_history");
+        if (saved) {
+          localData = JSON.parse(saved);
+          setHistory(localData);
+
+          // Set default Job ID if not already set by URL
+          setJobId(prev => {
+            if (prev) return prev;
+            if (localData.length > 0) return localData[0].annotation_id;
+            return "";
+          });
+        }
+      } catch (e) { console.error("Local history error", e); }
+
+      // 2. Fetch fresh data from API
+      try {
+        const res = await annotationAPI.get("/history");
+        const apiData = res.data || [];
+
+        // Merge API history with LocalStorage
+        const combined = new Map();
+
+        // Add local first
+        localData.forEach((h: any) => combined.set(h.annotation_id, h));
+
+        // Overwrite/Add API data
+        apiData.forEach((h: any) => combined.set(h.annotation_id, { ...combined.get(h.annotation_id), ...h }));
+
+        const sorted = Array.from(combined.values()).sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        setHistory(sorted);
+        // Update local storage with fresh data
+        localStorage.setItem("neurograph_history", JSON.stringify(sorted.slice(0, 20))); // Keep last 20
+
+        // Update Job ID again if it was still empty (e.g., local was empty but API has data)
+        setJobId(prev => {
+          if (prev) return prev;
+          if (sorted.length > 0) return sorted[0].annotation_id;
+          return "";
+        });
+
+      } catch (e) {
+        console.error("Failed to load history", e);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+    initData();
+  }, []);
 
   const startMining = async () => {
     if (!jobId) {
@@ -124,17 +190,33 @@ export default function Mine() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-2">
-              <Label htmlFor="job-id">Job ID</Label>
-              <Input
-                id="job-id"
-                placeholder="Enter the Job ID from the import step"
-                value={jobId}
-                onChange={(e) => setJobId(e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                The unique identifier for the graph generated in the previous step.
-              </p>
+            <div className="grid gap-4">
+              <Label>Select Graph to Mine</Label>
+              <Select value={jobId} onValueChange={setJobId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a graph" />
+                </SelectTrigger>
+                <SelectContent>
+                  {history.map((h: any) => (
+                    <SelectItem key={h.annotation_id} value={h.annotation_id}>
+                      {h.title || "Untitled Graph"} <span className="text-muted-foreground text-xs ml-2">({dayjs(h.created_at).fromNow()})</span>
+                    </SelectItem>
+                  ))}
+                  {history.length === 0 && !loadingHistory && (
+                    <SelectItem value="none" disabled>No graphs found</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+
+              {/* Show selected graph details if available */}
+              {jobId && history.find(h => h.annotation_id === jobId)?.node_count && (
+                <div className="text-xs text-muted-foreground mt-1 flex gap-2">
+                  <>
+                    <span>Nodes: {history.find(h => h.annotation_id === jobId)?.node_count}</span>
+                    <span>Edges: {history.find(h => h.annotation_id === jobId)?.edge_count}</span>
+                  </>
+                </div>
+              )}
             </div>
 
             <Accordion type="single" collapsible defaultValue="advanced">
@@ -322,6 +404,6 @@ export default function Mine() {
           </Card>
         )}
       </div>
-    </div>
+    </div >
   );
 }

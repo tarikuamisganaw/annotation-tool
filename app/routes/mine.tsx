@@ -60,21 +60,21 @@ export default function Mine() {
       setIsMining(true);
       setMiningResult(null);
 
-      // Call the Integration Service API
-      const response = await integrationAPI.post("/api/mine-patterns", null, {
-        params: {
-          job_id: jobId,
-          min_pattern_size: parseInt(minPatternSize),
-          max_pattern_size: parseInt(maxPatternSize),
-          min_neighborhood_size: parseInt(minNeighborhoodSize),
-          max_neighborhood_size: parseInt(maxNeighborhoodSize),
-          n_neighborhoods: parseInt(nNeighborhoods),
-          n_trials: parseInt(nTrials),
-          search_strategy: searchStrategy,
-          sample_method: sampleMethod,
-          graph_output_format: outputFormat,
-        },
-      });
+      // Create FormData to send as body (required by FastAPI Form handling)
+      const formData = new FormData();
+      formData.append("job_id", jobId);
+      formData.append("min_pattern_size", minPatternSize);
+      formData.append("max_pattern_size", maxPatternSize);
+      formData.append("min_neighborhood_size", minNeighborhoodSize);
+      formData.append("max_neighborhood_size", maxNeighborhoodSize);
+      formData.append("n_neighborhoods", nNeighborhoods);
+      formData.append("n_trials", nTrials);
+      formData.append("search_strategy", searchStrategy);
+      formData.append("sample_method", sampleMethod);
+      formData.append("graph_output_format", outputFormat);
+
+      // Call the Integration Service API with FormData
+      const response = await integrationAPI.post("/api/mine-patterns", formData);
 
       // Construct download URL - using the new /download-result endpoint logic if possible
       // Assuming backend returns relative path or we construct standard path

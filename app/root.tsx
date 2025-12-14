@@ -56,10 +56,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     schema = {};
   }
   const { getTheme } = await themeSessionResolver(request);
-  const API_URL = process.env.API_URL || "";
-  const ANNOTATION_URL = process.env.ANNOTATION_URL || "";
-  const LOADER_URL = process.env.LOADER_URL || "";
-  const INTEGRATION_URL = process.env.INTEGRATION_URL || "http://localhost:9000";
+
+  // Prepare environment variables for the client (window.ENV)
+  // We prefer PUBLIC_ variables if they exist (typically for external/localhost access),
+  // falling back to standard variables (internal/docker access) if not.
+  const API_URL = process.env.PUBLIC_API_URL || process.env.API_URL || "";
+  const ANNOTATION_URL = process.env.PUBLIC_ANNOTATION_URL || process.env.ANNOTATION_URL || "";
+  const LOADER_URL = process.env.PUBLIC_LOADER_URL || process.env.LOADER_URL || "";
+  const INTEGRATION_URL = process.env.PUBLIC_INTEGRATION_URL || process.env.INTEGRATION_URL || "http://localhost:9000";
+
   return json({
     ENV: { API_URL, ANNOTATION_URL, LOADER_URL, INTEGRATION_URL },
     theme: getTheme(),

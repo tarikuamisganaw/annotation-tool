@@ -79,7 +79,9 @@ export default function () {
 
   useEffect(() => {
     if (data.status !== "PENDING") return () => {};
-    ws.current = io("ws://100.67.47.42:5500/");
+    const socketUrl = window.ENV?.ANNOTATION_URL;
+    if (!socketUrl) return () => {};
+    ws.current = io(socketUrl);
     ws.current.on("connect", () => {
       ws.current!.emit("join", { room: data.annotation_id });
     });

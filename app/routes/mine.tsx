@@ -78,7 +78,7 @@ export default function Mine() {
           // Set default Job ID if not already set by URL
           setJobId(prev => {
             if (prev) return prev;
-            if (localData.length > 0) return localData[0].job_id || localData[0].annotation_id;
+            if (localData.length > 0) return localData[0].annotation_id;
             return "";
           });
         }
@@ -109,7 +109,7 @@ export default function Mine() {
         // Update Job ID again if it was still empty (e.g., local was empty but API has data)
         setJobId(prev => {
           if (prev) return prev;
-          if (sorted.length > 0) return sorted[0].job_id || sorted[0].annotation_id;
+          if (sorted.length > 0) return sorted[0].annotation_id;
           return "";
         });
 
@@ -240,7 +240,7 @@ export default function Mine() {
                 </SelectTrigger>
                 <SelectContent>
                   {history.map((h: any) => (
-                    <SelectItem key={h.annotation_id} value={h.job_id || h.annotation_id}>
+                    <SelectItem key={h.annotation_id} value={h.annotation_id}>
                       {h.title || "Untitled Graph"} <span className="text-muted-foreground text-xs ml-2">({dayjs(h.created_at).fromNow()})</span>
                     </SelectItem>
                   ))}
@@ -251,11 +251,11 @@ export default function Mine() {
               </Select>
 
               {/* Show selected graph details if available */}
-              {jobId && history.find(h => h.job_id === jobId || h.annotation_id === jobId)?.node_count && (
+              {jobId && history.find(h => h.annotation_id === jobId)?.node_count && (
                 <div className="text-xs text-muted-foreground mt-1 flex gap-2">
                   <>
-                    <span>Nodes: {history.find(h => h.job_id === jobId || h.annotation_id === jobId)?.node_count}</span>
-                    <span>Edges: {history.find(h => h.job_id === jobId || h.annotation_id === jobId)?.edge_count}</span>
+                    <span>Nodes: {history.find(h => h.annotation_id === jobId)?.node_count}</span>
+                    <span>Edges: {history.find(h => h.annotation_id === jobId)?.edge_count}</span>
                   </>
                 </div>
               )}
@@ -421,8 +421,8 @@ export default function Mine() {
 
                     <div className="space-y-2">
                       <div className="w-full bg-secondary h-3 rounded-full overflow-hidden border border-border">
-                        <div
-                          className="bg-green-600 h-full transition-all duration-500 ease-in-out shadow-[0_0_10px_rgba(22,163,74,0.5)]"
+                        <div 
+                          className="bg-green-600 h-full transition-all duration-500 ease-in-out shadow-[0_0_10px_rgba(22,163,74,0.5)]" 
                           style={{ width: `${miningProgress}%` }}
                         />
                       </div>
